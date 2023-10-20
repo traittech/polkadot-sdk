@@ -219,7 +219,7 @@ where
 	fn storage_diff(
 		&self,
 		start : Block::Hash,
-		end : Block::Hash,
+		end : Block::Hash
 	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
 		let mut start_keys = self.client.storage_keys(start, None, None).map_err(client_err)?;
 		let end_keys = self.client.storage_keys(end, None, None).map_err(client_err)?;
@@ -249,7 +249,99 @@ where
 		}
 
 		Ok(storage_diff)
+	}
 
+	fn storage_diff_with_prefixes(
+		&self,
+		start : Block::Hash,
+		end : Block::Hash,
+		prefixes : Vec<StorageKey>
+	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
+		let mut start_keys = vec![];
+		let mut end_keys = vec![];
+
+		// read all storage keys with given prefixes
+		for prefix in prefixes {
+			let start_keys_of_prefix = self.client.storage_keys(start, None, Some(&prefix)).map_err(client_err)?;
+			let end_keys_of_prefix = self.client.storage_keys(end, None, Some(&prefix)).map_err(client_err)?;
+			start_keys.extend(start_keys_of_prefix);
+			end_keys.extend(end_keys_of_prefix);
+		}
+		
+		// prepare diff
+		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
+		for key in end_keys {
+			// if a new key is present, add it to the diff
+			if !start_keys.contains(&key) {
+				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
+				storage_diff.push((key, new_storage))
+			} else {
+				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
+				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
+
+				if start_storage_val != end_storage_val {
+					storage_diff.push((key, end_storage_val))
+				}
+			}
+		}
+
+		// finally get any keys that have been removed between start_block and end_block
+		for key in start_keys {
+			if storage_diff.iter().position(|r| r.0 == key).is_none() {
+				storage_diff.push((key, None))
+			}
+		}
+
+		Ok(storage_diff)
+	}
+
+	fn storage_diff_without_prefixes(
+		&self,
+		start : Block::Hash,
+		end : Block::Hash,
+		prefixes : Vec<StorageKey>
+	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
+		let start_keys = self.client.storage_keys(start, None, None).map_err(client_err)?;
+		let end_keys = self.client.storage_keys(end, None, None).map_err(client_err)?;
+		let mut start_keys_to_exclude = vec![];
+		let mut end_keys_to_exclude = vec![];
+
+		// read all storage keys with given prefixes
+		for prefix in prefixes {
+			let start_keys_of_prefix = self.client.storage_keys(start, None, Some(&prefix)).map_err(client_err)?;
+			let end_keys_of_prefix = self.client.storage_keys(end, None, Some(&prefix)).map_err(client_err)?;
+			start_keys_to_exclude.extend(start_keys_of_prefix);
+			end_keys_to_exclude.extend(end_keys_of_prefix);
+		}
+
+		let mut start_keys = start_keys.filter(|x| !start_keys_to_exclude.contains(&x));
+		let mut end_keys = end_keys.filter(|x| !end_keys_to_exclude.contains(&x));
+		
+		// prepare diff
+		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
+		for key in end_keys {
+			// if a new key is present, add it to the diff
+			if !start_keys.contains(&key) {
+				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
+				storage_diff.push((key, new_storage))
+			} else {
+				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
+				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
+
+				if start_storage_val != end_storage_val {
+					storage_diff.push((key, end_storage_val))
+				}
+			}
+		}
+
+		// finally get any keys that have been removed between start_block and end_block
+		for key in start_keys {
+			if storage_diff.iter().position(|r| r.0 == key).is_none() {
+				storage_diff.push((key, None))
+			}
+		}
+
+		Ok(storage_diff)
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

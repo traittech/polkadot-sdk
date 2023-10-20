@@ -25,7 +25,6 @@ use super::{
 	ChildStateBackend, StateBackend,
 };
 use crate::{DenyUnsafe, SubscriptionTaskExecutor};
-use itertools::Itertools;
 use futures::{future, stream, FutureExt, StreamExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError},
@@ -165,6 +164,41 @@ where
 		}
 		Ok(())
 	}
+
+	// Prepares a storage diff from given start_keys and end_keys
+	fn prepare_storage_diff(
+		&self,
+		start : Block::Hash,
+		end : Block::Hash,
+		start_keys: Vec<StorageKey>,
+		end_keys: Vec<StorageKey>
+	)-> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
+		// prepare diff
+		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
+		for key in end_keys {
+			// if a new key is present, add it to the diff
+			if !start_keys.contains(&key) {
+				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
+				storage_diff.push((key, new_storage))
+			} else {
+				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
+				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
+
+				if start_storage_val != end_storage_val {
+					storage_diff.push((key, end_storage_val))
+				}
+			}
+		}
+
+		// finally get any keys that have been removed between start_block and end_block
+		for key in start_keys {
+			if storage_diff.iter().position(|r| r.0 == key).is_none() {
+				storage_diff.push((key, None))
+			}
+		}
+
+		Ok(storage_diff)
+	}
 }
 
 #[async_trait]
@@ -221,34 +255,10 @@ where
 		start : Block::Hash,
 		end : Block::Hash
 	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
-		let mut start_keys = self.client.storage_keys(start, None, None).map_err(client_err)?;
-		let end_keys = self.client.storage_keys(end, None, None).map_err(client_err)?;
-		
-		// prepare diff
-		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
-		for key in end_keys {
-			// if a new key is present, add it to the diff
-			if !start_keys.contains(&key) {
-				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
-				storage_diff.push((key, new_storage))
-			} else {
-				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
-				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
+		let start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
+		let end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
 
-				if start_storage_val != end_storage_val {
-					storage_diff.push((key, end_storage_val))
-				}
-			}
-		}
-
-		// finally get any keys that have been removed between start_block and end_block
-		for key in start_keys {
-			if storage_diff.iter().position(|r| r.0 == key).is_none() {
-				storage_diff.push((key, None))
-			}
-		}
-
-		Ok(storage_diff)
+		self.prepare_storage_diff(start,end, start_keys, end_keys)
 	}
 
 	fn storage_diff_with_prefixes(
@@ -268,31 +278,7 @@ where
 			end_keys.extend(end_keys_of_prefix);
 		}
 		
-		// prepare diff
-		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
-		for key in end_keys {
-			// if a new key is present, add it to the diff
-			if !start_keys.contains(&key) {
-				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
-				storage_diff.push((key, new_storage))
-			} else {
-				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
-				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
-
-				if start_storage_val != end_storage_val {
-					storage_diff.push((key, end_storage_val))
-				}
-			}
-		}
-
-		// finally get any keys that have been removed between start_block and end_block
-		for key in start_keys {
-			if storage_diff.iter().position(|r| r.0 == key).is_none() {
-				storage_diff.push((key, None))
-			}
-		}
-
-		Ok(storage_diff)
+		self.prepare_storage_diff(start,end, start_keys, end_keys)
 	}
 
 	fn storage_diff_without_prefixes(
@@ -314,34 +300,10 @@ where
 			end_keys_to_exclude.extend(end_keys_of_prefix);
 		}
 
-		let mut start_keys = start_keys.filter(|x| !start_keys_to_exclude.contains(&x));
-		let mut end_keys = end_keys.filter(|x| !end_keys_to_exclude.contains(&x));
+		let start_keys : Vec<_> = start_keys.filter(|x| !start_keys_to_exclude.contains(&x)).collect();
+		let end_keys : Vec<_> = end_keys.filter(|x| !end_keys_to_exclude.contains(&x)).collect();
 		
-		// prepare diff
-		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
-		for key in end_keys {
-			// if a new key is present, add it to the diff
-			if !start_keys.contains(&key) {
-				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
-				storage_diff.push((key, new_storage))
-			} else {
-				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
-				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
-
-				if start_storage_val != end_storage_val {
-					storage_diff.push((key, end_storage_val))
-				}
-			}
-		}
-
-		// finally get any keys that have been removed between start_block and end_block
-		for key in start_keys {
-			if storage_diff.iter().position(|r| r.0 == key).is_none() {
-				storage_diff.push((key, None))
-			}
-		}
-
-		Ok(storage_diff)
+		self.prepare_storage_diff(start,end, start_keys, end_keys)
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

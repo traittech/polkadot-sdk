@@ -272,13 +272,13 @@ where
 
 		let mut start_keys = vec![];
 		let mut end_keys = vec![];
-		let start_state = Box::new(self.client.state_at(start).unwrap());
+		let start_state = self.client.state_at(start).unwrap();
 		let end_state = self.client.state_at(start).unwrap();
 
 		if let Some(prefixes) = include_prefixes {
 			for prefix in prefixes {
-				let start_keys_of_prefix = KeysIter::new(start_state.clone().inner(), Some(&prefix), None).unwrap();
-				let end_keys_of_prefix = KeysIter::new(end_state.clone(), Some(&prefix), None).unwrap();
+				let start_keys_of_prefix: KeysIter<<Client as CallApiAt<Block>>::StateBackend, Block> = KeysIter::new(start_state.clone(), Some(&prefix), None).unwrap();
+				let end_keys_of_prefix: KeysIter<<Client as CallApiAt<Block>>::StateBackend, Block> = KeysIter::new(end_state.clone(), Some(&prefix), None).unwrap();
 
 				start_keys.extend(start_keys_of_prefix);
 				end_keys.extend(end_keys_of_prefix);

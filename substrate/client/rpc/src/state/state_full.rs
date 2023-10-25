@@ -304,7 +304,7 @@ where
 		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
 		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
 
-		self.prepare_storage_diff(start,end, start_keys, end_keys)
+		self.prepare_storage_diff(start, end, start_keys, end_keys)
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

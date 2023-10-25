@@ -70,6 +70,10 @@ pub trait StateApi<Hash> {
 	#[method(name = "state_getStorageDiff", aliases = ["state_getStorageDiffAt"], blocking)]
 	fn storage_diff(&self, start: Hash, end: Hash) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
 
+	/// Returns a storage diff between start block state and end block state with option to include or exclude prefixes
+	#[method(name = "state_getStorageDiffWithPrefixes", aliases = ["state_getStorageDiffPrefixes"], blocking)]
+	fn storage_diff_with_prefixes(&self, start: Hash, end: Hash, include_prefixes : Option<Vec<StorageKey>>, exclude_prefixes : Option<Vec<StorageKey>>) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
+	
 	/// Returns the hash of a storage entry at a block's state.
 	#[method(name = "state_getStorageHash", aliases = ["state_getStorageHashAt"], blocking)]
 	fn storage_hash(&self, key: StorageKey, hash: Option<Hash>) -> RpcResult<Option<Hash>>;

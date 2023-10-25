@@ -105,6 +105,15 @@ where
 		end: Block::Hash,
 	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
 
+	/// Returns a storage diff between start block and end block with an option to include or exclude prefixes
+	fn storage_diff_with_prefixes(
+		&self,
+		start: Block::Hash,
+		end: Block::Hash,
+		include_prefixes : Option<Vec<StorageKey>>,
+		exclude_prefixes : Option<Vec<StorageKey>>
+	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
+
 	/// Returns the hash of a storage entry at a block's state.
 	fn storage_hash(
 		&self,
@@ -267,6 +276,16 @@ where
 		end: Block::Hash,
 	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>> {
 		self.backend.storage_diff(start, end).map_err(Into::into)
+	}
+
+	fn storage_diff_with_prefixes(
+		&self,
+		start: Block::Hash,
+		end: Block::Hash,
+		include_prefixes : Option<Vec<StorageKey>>,
+		exclude_prefixes : Option<Vec<StorageKey>>
+	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>> {
+		self.backend.storage_diff_with_prefixes(start, end, include_prefixes, exclude_prefixes).map_err(Into::into)
 	}
 
 	fn storage_hash(

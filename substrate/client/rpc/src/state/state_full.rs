@@ -200,35 +200,35 @@ where
 		Ok(storage_diff)
 	}
 
-		/// Helper function to check a key against lists of prefixes
-		fn is_target_key(
-			&self,
-			key_to_check: StorageKey,
-			include_prefixes : Option<Vec<StorageKey>>,
-			exclude_prefixes : Option<Vec<StorageKey>>
-		) -> bool {
-			if exclude_prefixes.is_some() {
-				for exclude_prefix in exclude_prefixes.iter().next().unwrap() {
-					if key_to_check.0.starts_with(&exclude_prefix.0) {
-						// skip all keys that have any of "excluded prefixes"
-						return false
-					}
+	/// Helper function to check a key against lists of prefixes
+	fn is_target_key(
+		&self,
+		key_to_check: StorageKey,
+		include_prefixes : Option<Vec<StorageKey>>,
+		exclude_prefixes : Option<Vec<StorageKey>>
+	) -> bool {
+		if let Some(prefixes_to_exclude) = exclude_prefixes {
+			for exclude_prefix in prefixes_to_exclude {
+				if key_to_check.0.starts_with(&exclude_prefix.0) {
+					// skip all keys that have any of "excluded prefixes"
+					return false
 				}
 			}
-	
-			if include_prefixes.is_some() {
-				for include_prefix in include_prefixes.iter().next().unwrap() {
-					if key_to_check.0.starts_with(&include_prefix.0) {
-						return true
-					}
-				}
-				// skip all keys that do not have any of "included prefixes"
-				return false
-			}
-	
-			// by default process all keys
-			return true
 		}
+
+		if let Some(prefixes_to_include) = include_prefixes {
+			for include_prefix in prefixes_to_include {
+				if key_to_check.0.starts_with(&include_prefix.0) {
+					return true
+				}
+			}
+			// skip all keys that do not have any of "included prefixes"
+			return false
+		}
+
+		// by default process all keys
+		return true
+	}
 }
 
 #[async_trait]

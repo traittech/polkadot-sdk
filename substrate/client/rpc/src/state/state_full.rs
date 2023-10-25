@@ -199,6 +199,36 @@ where
 
 		Ok(storage_diff)
 	}
+
+		/// Helper function to check a key against lists of prefixes
+		fn is_target_key(
+			&self,
+			key_to_check: StorageKey,
+			include_prefixes : Option<Vec<StorageKey>>,
+			exclude_prefixes : Option<Vec<StorageKey>>
+		) -> bool {
+			if exclude_prefixes.is_some() {
+				for exclude_prefix in exclude_prefixes.iter().next().unwrap() {
+					if key_to_check.0.starts_with(&exclude_prefix.0) {
+						// skip all keys that have any of "excluded prefixes"
+						return false
+					}
+				}
+			}
+	
+			if include_prefixes.is_some() {
+				for include_prefix in include_prefixes.iter().next().unwrap() {
+					if key_to_check.0.starts_with(&include_prefix.0) {
+						return true
+					}
+				}
+				// skip all keys that do not have any of "included prefixes"
+				return false
+			}
+	
+			// by default process all keys
+			return true
+		}
 }
 
 #[async_trait]
@@ -261,36 +291,7 @@ where
 		self.prepare_storage_diff(start,end, start_keys, end_keys)
 	}
 
-	/// Helper function to check a key against lists of prefixes
-	fn is_target_key(
-		key_to_check: StorageKey,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
-	) -> bool {
-		if exclude_prefixes.is_some() {
-			for exclude_prefix in exclude_prefixes.iter().next().unwrap() {
-				if key_to_check.chunks(exclude_prefix.len()).next().unwrap() == exclude_prefix {
-					// skip all keys that have any of "excluded prefixes"
-					return False
-				}
-			}
-		}
-
-		if include_prefixes.is_some() {
-			for include_prefix in include_prefixes.iter().next().unwrap() {
-				if key_to_check.chunks(include_prefix.len()).next().unwrap() == include_prefix {
-					return True
-				}
-			}
-			// skip all keys that do not have any of "included prefixes"
-			return False
-		}
-
-		// by default process all keys
-		return True
-	}
-
-	fn storage_diff_with_prefixes_v2(
+	fn storage_diff_with_prefixes(
 		&self,
 		start : Block::Hash,
 		end : Block::Hash,
@@ -300,72 +301,11 @@ where
 		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
 		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
 
-		start_keys = start_keys.iter().filter(|key| is_target_key(key, include_prefixes, exclude_prefixes)).collect();
-		end_keys = end_keys.iter().filter(|key| is_target_key(key, include_prefixes, exclude_prefixes)).collect();
+		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
+		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
 
 		self.prepare_storage_diff(start,end, start_keys, end_keys)
 	}
-
-
-	fn storage_diff_with_prefixes(
-		&self,
-		start : Block::Hash,
-		end : Block::Hash,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
-	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
-		use sc_client_api::KeysIter;
-
-		let mut start_keys = vec![];
-		let mut end_keys = vec![];
-		let start_state = self.client.state_at(start).unwrap();
-		let end_state = self.client.state_at(start).unwrap();
-
-		if let Some(prefixes) = include_prefixes {
-			for prefix in prefixes {
-				let start_keys_of_prefix: KeysIter<<Client as CallApiAt<Block>>::StateBackend, Block> = KeysIter::new(start_state.clone(), Some(&prefix), None).unwrap();
-				let end_keys_of_prefix: KeysIter<<Client as CallApiAt<Block>>::StateBackend, Block> = KeysIter::new(end_state.clone(), Some(&prefix), None).unwrap();
-
-				start_keys.extend(start_keys_of_prefix);
-				end_keys.extend(end_keys_of_prefix);
-			}
-		}
-
-		// // read all storage keys with given prefixes
-		// for prefix in prefixes {
-		// 	let start_keys_of_prefix = self.client.storage_keys(start, None, Some(&prefix)).map_err(client_err)?;
-		// 	let end_keys_of_prefix = self.client.storage_keys(end, None, Some(&prefix)).map_err(client_err)?;
-		// 	start_keys.extend(start_keys_of_prefix);
-		// 	end_keys.extend(end_keys_of_prefix);
-		// }
-		
-		self.prepare_storage_diff(start,end, start_keys, end_keys)
-	}
-
-	// fn storage_diff_without_prefixes(
-	// 	&self,
-	// 	start : Block::Hash,
-	// 	end : Block::Hash,
-	// 	prefixes : Vec<StorageKey>
-	// ) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
-	// 	let start_keys = self.client.storage_keys(start, None, None).map_err(client_err)?;
-	// 	let end_keys = self.client.storage_keys(end, None, None).map_err(client_err)?;
-	// 	let mut start_keys_to_exclude = vec![];
-	// 	let mut end_keys_to_exclude = vec![];
-
-	// 	// read all storage keys with given prefixes
-	// 	for prefix in prefixes {
-	// 		let start_keys_of_prefix = self.client.storage_keys(start, None, Some(&prefix)).map_err(client_err)?;
-	// 		let end_keys_of_prefix = self.client.storage_keys(end, None, Some(&prefix)).map_err(client_err)?;
-	// 		start_keys_to_exclude.extend(start_keys_of_prefix);
-	// 		end_keys_to_exclude.extend(end_keys_of_prefix);
-	// 	}
-
-	// 	let start_keys : Vec<_> = start_keys.filter(|x| !start_keys_to_exclude.contains(&x)).collect();
-	// 	let end_keys : Vec<_> = end_keys.filter(|x| !end_keys_to_exclude.contains(&x)).collect();
-		
-	// 	self.prepare_storage_diff(start,end, start_keys, end_keys)
-	// }
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.
 	fn storage_pairs(

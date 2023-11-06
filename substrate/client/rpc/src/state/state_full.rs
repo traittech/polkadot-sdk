@@ -53,6 +53,8 @@ use sp_version::RuntimeVersion;
 /// The maximum time allowed for an RPC call when running without unsafe RPC enabled.
 const MAXIMUM_SAFE_RPC_CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
+const LOG_TARGET: &str = "storage-rpc";
+
 /// Ranges to query in state_queryStorage.
 struct QueryStorageRange<Block: BlockT> {
 	/// Hashes of all the blocks in the range.
@@ -207,14 +209,12 @@ where
 		include_prefixes : Option<Vec<StorageKey>>,
 		exclude_prefixes : Option<Vec<StorageKey>>
 	) -> bool {
-		println!("key to check {:?}", key_to_check);
-		println!("include_prefixes {:?}", include_prefixes);
-		println!("exclude_prefixes {:?}", exclude_prefixes);
+		log::debug!(target: LOG_TARGET, "key to check {:?}", key_to_check);
 		if let Some(prefixes_to_exclude) = exclude_prefixes {
 			for exclude_prefix in prefixes_to_exclude {
 				if key_to_check.0.starts_with(&exclude_prefix.0) {
 					// skip all keys that have any of "excluded prefixes"
-					println!("Exclude Prefix | Found key which is prefix {:?}", key_to_check);
+					log::debug!(target: LOG_TARGET, "Exclude Prefix | Found key which is prefix {:?}", key_to_check);
 					return false
 				}
 			}
@@ -223,7 +223,7 @@ where
 		if let Some(prefixes_to_include) = include_prefixes {
 			for include_prefix in prefixes_to_include {
 				if key_to_check.0.starts_with(&include_prefix.0) {
-					println!("Include Prefix | Found key which is needed prefix {:?}", key_to_check);
+					log::debug!(target: LOG_TARGET, "Include Prefix | Found key which is needed prefix {:?}", key_to_check);
 					return true
 				}
 			}
@@ -306,8 +306,11 @@ where
 		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
 		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
 
-		println!("Found {:?} start keys", start_keys.len());
-		println!("Found {:?} end keys", end_keys.len());
+		log::debug!(target: LOG_TARGET, "Found {:?} start keys", start_keys.len());
+		log::debug!(target: LOG_TARGET, "Found {:?} end keys", end_keys.len());
+
+		log::debug!(target: LOG_TARGET, "include_prefixes {:?}", include_prefixes);
+		log::debug!(target: LOG_TARGET, "exclude_prefixes {:?}", exclude_prefixes);
 
 		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
 		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();

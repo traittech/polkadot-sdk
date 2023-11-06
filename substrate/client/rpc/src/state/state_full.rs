@@ -309,19 +309,14 @@ where
 		log::debug!(target: LOG_TARGET, "include_prefixes {:?}", include_prefixes);
 		log::debug!(target: LOG_TARGET, "exclude_prefixes {:?}", exclude_prefixes);
 
-		let mut start_keys : Vec<_> = vec![];
-		let mut end_keys : Vec<_> = vec![];
-
-		for prefix in include_prefixes.unwrap() {
-			start_keys.extend(self.client.storage_keys(start, Some(&prefix), None).map_err(client_err)?.collect::<Vec<_>>());
-			end_keys.extend(self.client.storage_keys(end, Some(&prefix), None).map_err(client_err)?.collect::<Vec<_>>());
-		}
+		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
+		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
 		
 		log::debug!(target: LOG_TARGET, "Found {:?} start keys", start_keys.len());
 		log::debug!(target: LOG_TARGET, "Found {:?} end keys", end_keys.len());
 
-		// start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
-		// end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
+		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
+		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
 
 		self.prepare_storage_diff(start, end, start_keys, end_keys)
 	}

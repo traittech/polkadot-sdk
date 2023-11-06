@@ -310,7 +310,10 @@ where
 		log::debug!(target: LOG_TARGET, "exclude_prefixes {:?}", exclude_prefixes);
 
 		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
+		log::debug!(target: LOG_TARGET, "start keys loaded");
+
 		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
+		log::debug!(target: LOG_TARGET, "end keys loaded");
 		
 		log::debug!(target: LOG_TARGET, "Found {:?} start keys", start_keys.len());
 		log::debug!(target: LOG_TARGET, "Found {:?} end keys", end_keys.len());

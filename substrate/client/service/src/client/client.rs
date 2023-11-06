@@ -1473,6 +1473,7 @@ where
 		start_key: Option<&StorageKey>,
 	) -> sp_blockchain::Result<KeysIter<B::State, Block>> {
 		let state = self.state_at(hash)?;
+		log::debug!(target: "storage-rpc", "state loaded");
 		KeysIter::new(state, prefix, start_key)
 			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
 	}

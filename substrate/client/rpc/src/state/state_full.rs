@@ -307,7 +307,7 @@ where
 		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
 
 		println!("Found {:?} start keys", start_keys.len());
-		println!("Found {:?} end keys", end_key.len());
+		println!("Found {:?} end keys", end_keys.len());
 
 		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
 		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();

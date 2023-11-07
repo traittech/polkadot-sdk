@@ -305,25 +305,27 @@ where
 		include_prefixes : Option<Vec<StorageKey>>,
 		exclude_prefixes : Option<Vec<StorageKey>>
 	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
-		log::debug!(target: LOG_TARGET, "Starting execution of storage_diff_with_prefixes");
-		log::debug!(target: LOG_TARGET, "include_prefixes {:?}", include_prefixes);
-		log::debug!(target: LOG_TARGET, "exclude_prefixes {:?}", exclude_prefixes);
+		log::debug!(target: LOG_TARGET, "Begin to iterate start keys");
+		let mut start_keys_iter_1 = self.client.storage_keys(start, None, None).map_err(client_err)?;
+		let mut start_key_count = 0;
+		while let Some(start_key) = start_keys_iter_1.next() { 
+			start_key_count += 1;
+		}
+		log::debug!(target: LOG_TARGET, "Finished to iterate start keys");
+		log::debug!(target: LOG_TARGET, "Number of start keys: {}", start_key_count);
 
-		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
-		log::debug!(target: LOG_TARGET, "start keys loaded");
-		log::debug!(target: LOG_TARGET, "start keys size {:?}", std::mem::size_of_val(&start_keys));
 
-		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
-		log::debug!(target: LOG_TARGET, "end keys loaded");
-		log::debug!(target: LOG_TARGET, "end keys size {:?}", std::mem::size_of_val(&end_keys));
-		
-		log::debug!(target: LOG_TARGET, "Found {:?} start keys", start_keys.len());
-		log::debug!(target: LOG_TARGET, "Found {:?} end keys", end_keys.len());
+		log::debug!(target: LOG_TARGET, "Begin second iteration over start keys");
+		let mut start_keys_iter_2 = self.client.storage_keys(start, None, None).map_err(client_err)?;
+		start_key_count = 0;
+		while let Some(start_key) = start_keys_iter_2.next() { 
+			start_key_count += 1;
+		}
+		log::debug!(target: LOG_TARGET, "Finished to iterate start keys");
+		log::debug!(target: LOG_TARGET, "Number of start keys: {}", start_key_count);
 
-		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
-		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
-
-		self.prepare_storage_diff(start, end, start_keys, end_keys)
+		//self.prepare_storage_diff(start, end, start_keys, end_keys)
+		Ok(vec![])
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

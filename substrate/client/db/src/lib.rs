@@ -2438,13 +2438,20 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				if let Ok(()) =
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
+					log::debug!(target: "storage-rpc", "fetching root");
 					let root = hdr.state_root;
+					log::debug!(target: "storage-rpc", "db_state with cache {:?}", self.shared_trie_cache.is_some());
 					let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
 						.with_optional_cache(
 							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
 						)
 						.build();
+					log::debug!(target: "storage-rpc", "db_state loaded");
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
+					
+					log::debug!(target: "storage-rpc", "db_state loaded to RefTrackingState");
+					log::debug!(target: "storage-rpc", "db_state loaded to RefTrackingState size {:?}", std::mem::size_of_val(&state));
+
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
 				} else {
 					Err(sp_blockchain::Error::UnknownBlock(format!(

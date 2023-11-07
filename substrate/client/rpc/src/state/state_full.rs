@@ -311,9 +311,11 @@ where
 
 		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
 		log::debug!(target: LOG_TARGET, "start keys loaded");
+		log::debug!(target: LOG_TARGET, "start keys size {:?}", std::mem::size_of_val(&start_keys));
 
 		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
 		log::debug!(target: LOG_TARGET, "end keys loaded");
+		log::debug!(target: LOG_TARGET, "end keys size {:?}", std::mem::size_of_val(&end_keys));
 		
 		log::debug!(target: LOG_TARGET, "Found {:?} start keys", start_keys.len());
 		log::debug!(target: LOG_TARGET, "Found {:?} end keys", end_keys.len());

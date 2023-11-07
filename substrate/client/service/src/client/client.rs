@@ -1474,6 +1474,7 @@ where
 	) -> sp_blockchain::Result<KeysIter<B::State, Block>> {
 		let state = self.state_at(hash)?;
 		log::debug!(target: "storage-rpc", "state loaded");
+		log::debug!(target: "storage-rpc", "state loaded size {:?}", std::mem::size_of_val(&state));
 		KeysIter::new(state, prefix, start_key)
 			.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))
 	}

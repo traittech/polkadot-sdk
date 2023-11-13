@@ -1003,6 +1003,13 @@ struct StorageDb<Block: BlockT> {
 	prefix_keys: bool,
 }
 
+// temp :: TODO Implement
+impl<Block: BlockT> std::fmt::Debug for StorageDb<Block> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
 		if self.prefix_keys {
@@ -2498,7 +2505,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					// 		self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
 					// 	)
 					// 	.build();
-					let state = self.storage.state_db.get("block/storage_updates".into(), &self.storage);
+					let state = self.storage.state_db.get(&hdr.state_root.encode(), &Arc::try_unwrap(self.storage).unwrap());
 					//Ok((db_state.storage().storage_updates, db_state.storage().child_storage_updates))
 				} else {
 					Err(sp_blockchain::Error::UnknownBlock(format!(

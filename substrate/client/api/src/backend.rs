@@ -586,6 +586,9 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Returns state backend with post-state of given block.
 	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
 
+	/// Returns the list of storage update executed by the block
+	fn storage_updates_at(&self, hash: Block::Hash) -> sp_blockchain::Result<(Vec<StorageCollection>, Vec<ChildStorageCollection>)>;
+
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an
 	/// inconsistent state. All blocks higher than the best block are also reverted and not counting

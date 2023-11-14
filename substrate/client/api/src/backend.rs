@@ -435,6 +435,11 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 		start_key: Option<&StorageKey>,
 	) -> sp_blockchain::Result<KeysIter<B::State, Block>>;
 
+	fn storage_updates_at(
+		&self,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
+
 	/// Given a block's `Hash` and a key prefix, returns an iterator over the storage keys and
 	/// values in that block.
 	fn storage_pairs(
@@ -587,7 +592,7 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	fn state_at(&self, hash: Block::Hash) -> sp_blockchain::Result<Self::State>;
 
 	/// Returns the list of storage update executed by the block
-	fn storage_updates_at(&self, hash: Block::Hash) -> sp_blockchain::Result<(Vec<StorageCollection>, Vec<ChildStorageCollection>)>;
+	fn storage_updates_at(&self, hash: Block::Hash) -> sp_blockchain::Result<(StorageCollection, ChildStorageCollection)>;
 
 	/// Attempts to revert the chain by `n` blocks. If `revert_finalized` is set it will attempt to
 	/// revert past any finalized block, this is unsafe and can potentially leave the node in an

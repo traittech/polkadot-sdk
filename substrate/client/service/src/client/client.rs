@@ -1511,6 +1511,16 @@ where
 			.map(StorageData))
 	}
 
+	fn storage_updates_at(
+		&self,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
+		Ok(self
+			.backend.storage_updates_at(hash)?
+			.0
+			)
+	}
+
 	fn storage_hash(
 		&self,
 		hash: <Block as BlockT>::Hash,

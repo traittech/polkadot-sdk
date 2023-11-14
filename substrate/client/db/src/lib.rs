@@ -91,6 +91,8 @@ use sp_state_machine::{
 	StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use bincode::{serialize, deserialize};
+use serde::{Serialize, Deserialize};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -1578,8 +1580,15 @@ impl<Block: BlockT> Backend<Block> {
 				}
 
 				// add the storage updates to the changeset
-				changeset.inserted.push(("block/storage_updates".into(), operation.storage_updates.clone().encode()));
-				changeset.inserted.push(("block/child_storage_updates".into(), operation.child_storage_updates.clone().encode()));
+				let storage_updates_encoded = serialize(&operation.storage_updates.clone()).unwrap();
+				let mut storage_updates_key = hash.encode();
+				storage_updates_key.extend_from_slice("block/storage_updates".as_bytes());
+				changeset.inserted.push((storage_updates_key, storage_updates_encoded));
+
+				let child_storage_updates_encoded = serialize(&operation.child_storage_updates.clone()).unwrap();
+				let mut child_storage_updates_key = hash.encode();
+				child_storage_updates_key.extend_from_slice("block/child_storage_updates".as_bytes());
+				changeset.inserted.push((child_storage_updates_key, child_storage_updates_encoded));
 
 				self.state_usage.tally_writes_nodes(ops, bytes);
 				self.state_usage.tally_removed_nodes(removal, bytes_removal);
@@ -2477,7 +2486,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 	}
 
 
-	fn storage_updates_at(&self, hash: Block::Hash) -> ClientResult<(Vec<StorageCollection>, Vec<ChildStorageCollection>)> {
+	fn storage_updates_at(&self, hash: Block::Hash) -> ClientResult<(StorageCollection, ChildStorageCollection)> {
 		// if hash == self.blockchain.meta.read().genesis_hash {
 		// 	if let Some(genesis_state) = &*self.genesis_state.read() {
 		// 		let root = genesis_state.root;
@@ -2500,13 +2509,18 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
 					let root = hdr.state_root;
-					// let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
-					// 	.with_optional_cache(
-					// 		self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-					// 	)
-					// 	.build();
-					let state = self.storage.state_db.get(&hdr.state_root.encode(), &Arc::try_unwrap(self.storage).unwrap());
-					//Ok((db_state.storage().storage_updates, db_state.storage().child_storage_updates))
+
+					let mut storage_updates_key = hash.encode();
+					storage_updates_key.extend_from_slice("block/storage_updates".as_bytes());
+					let state = self.storage.state_db.get(&storage_updates_key, &Arc::try_unwrap(self.storage.clone()).unwrap());
+					let storage_collection : StorageCollection = deserialize(&state.unwrap().unwrap()).unwrap();
+
+					let mut child_storage_updates_key = hash.encode();
+					child_storage_updates_key.extend_from_slice("block/child_storage_updates".as_bytes());
+					let state = self.storage.state_db.get(&child_storage_updates_key, &Arc::try_unwrap(self.storage.clone()).unwrap());
+					let child_storage_collection : ChildStorageCollection = deserialize(&state.unwrap().unwrap()).unwrap();
+
+					Ok((storage_collection, child_storage_collection))
 				} else {
 					Err(sp_blockchain::Error::UnknownBlock(format!(
 						"State already discarded for {:?}",

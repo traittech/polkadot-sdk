@@ -758,7 +758,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
 	}
 
-	fn storage_updates_at(&self, hash: Block::Hash) -> sp_blockchain::Result<(Vec<StorageCollection>, Vec<ChildStorageCollection>)> {
+	fn storage_updates_at(&self, hash: Block::Hash) -> sp_blockchain::Result<(StorageCollection, ChildStorageCollection)> {
 		Ok((Default::default(), Default::default()))
 	}
 

@@ -42,6 +42,14 @@ pub trait StateApi<Hash> {
 	#[deprecated(since = "2.0.0", note = "Please use `getKeysPaged` with proper paging support")]
 	fn storage_keys(&self, prefix: StorageKey, hash: Option<Hash>) -> RpcResult<Vec<StorageKey>>;
 
+	/// Returns a storage diff between start block state and end block state
+	#[method(name = "state_getStorageDiff", aliases = ["state_getStorageDiffAt"], blocking)]
+	fn storage_diff(&self, start: Hash, end: Hash) -> RpcResult<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
+
+	/// Returns a storage diff between start block state and end block state with option to include or exclude prefixes
+	#[method(name = "state_getStorageDiffWithPrefixes", aliases = ["state_getStorageDiffPrefixes"], blocking)]
+	fn storage_diff_with_prefixes(&self, start: Hash, end: Hash, include_prefixes : Option<Vec<StorageKey>>, exclude_prefixes : Option<Vec<StorageKey>>) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
+	
 	/// Returns the keys with prefix, leave empty to get all the keys
 	#[method(name = "state_getPairs", blocking)]
 	fn storage_pairs(

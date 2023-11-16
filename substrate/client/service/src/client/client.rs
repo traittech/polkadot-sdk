@@ -1514,10 +1514,9 @@ where
 	fn storage_updates_at(
 		&self,
 		hash: Block::Hash,
-	) -> sp_blockchain::Result<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
+	) -> sp_blockchain::Result<(StorageCollection, ChildStorageCollection)> {
 		Ok(self
 			.backend.storage_updates_at(hash)?
-			.0
 			)
 	}
 

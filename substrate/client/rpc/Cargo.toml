@@ -37,7 +37,8 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-session = { path = "../../primitives/session" }
 sp-version = { path = "../../primitives/version" }
 sp-statement-store = { path = "../../primitives/statement-store" }
-
+sp-state-machine = { path = "../../primitives/state-machine" }
+hex = "0.4"
 tokio = "1.22.0"
 
 [dev-dependencies]

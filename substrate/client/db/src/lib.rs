@@ -92,7 +92,6 @@ use sp_state_machine::{
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
 use bincode::{serialize, deserialize};
-use serde::{Serialize, Deserialize};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -101,6 +100,8 @@ pub use sp_database::Database;
 pub use bench::BenchmarkingState;
 
 const CACHE_HEADERS: usize = 8;
+const CHILD_STORAGE_UPDATE_PREFIX : &str = "block/child_storage_updates";
+const STORAGE_UPDATE_PREFIX : &str = "block/storage_updates";
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
 pub type DbState<B> =
@@ -1005,13 +1006,6 @@ struct StorageDb<Block: BlockT> {
 	prefix_keys: bool,
 }
 
-// temp :: TODO Implement
-impl<Block: BlockT> std::fmt::Debug for StorageDb<Block> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(())
-    }
-}
-
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
 		if self.prefix_keys {
@@ -1582,12 +1576,12 @@ impl<Block: BlockT> Backend<Block> {
 				// add the storage updates to the changeset
 				let storage_updates_encoded = serialize(&operation.storage_updates.clone()).unwrap();
 				let mut storage_updates_key = hash.encode();
-				storage_updates_key.extend_from_slice("block/storage_updates".as_bytes());
-				changeset.inserted.push((storage_updates_key, storage_updates_encoded));
+				storage_updates_key.extend_from_slice(STORAGE_UPDATE_PREFIX.as_bytes());
+				changeset.inserted.push((storage_updates_key, storage_updates_encoded.clone()));
 
 				let child_storage_updates_encoded = serialize(&operation.child_storage_updates.clone()).unwrap();
 				let mut child_storage_updates_key = hash.encode();
-				child_storage_updates_key.extend_from_slice("block/child_storage_updates".as_bytes());
+				child_storage_updates_key.extend_from_slice(CHILD_STORAGE_UPDATE_PREFIX.as_bytes());
 				changeset.inserted.push((child_storage_updates_key, child_storage_updates_encoded));
 
 				self.state_usage.tally_writes_nodes(ops, bytes);
@@ -2487,15 +2481,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 
 
 	fn storage_updates_at(&self, hash: Block::Hash) -> ClientResult<(StorageCollection, ChildStorageCollection)> {
-		// if hash == self.blockchain.meta.read().genesis_hash {
-		// 	if let Some(genesis_state) = &*self.genesis_state.read() {
-		// 		let root = genesis_state.root;
-		// 		let db_state = DbStateBuilder::<Block>::new(genesis_state.clone(), root)
-		// 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-		// 			.build();
-		// 		return Ok((db_state.storage().storage_updates, db_state.storage().child_storage_updates))
-		// 	}
-		// }
+		if hash == self.blockchain.meta.read().genesis_hash {
+			// no storage updates for genesis block
+			return Ok(Default::default());
+		}
 
 		match self.blockchain.header_metadata(hash) {
 			Ok(ref hdr) => {
@@ -2508,17 +2497,25 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				if let Ok(()) =
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
-					let root = hdr.state_root;
-
 					let mut storage_updates_key = hash.encode();
-					storage_updates_key.extend_from_slice("block/storage_updates".as_bytes());
-					let state = self.storage.state_db.get(&storage_updates_key, &Arc::try_unwrap(self.storage.clone()).unwrap());
-					let storage_collection : StorageCollection = deserialize(&state.unwrap().unwrap()).unwrap();
+					storage_updates_key.extend_from_slice(STORAGE_UPDATE_PREFIX.as_bytes());					
+					let storage_collection_raw = self.storage.db.get(columns::STATE, &storage_updates_key);
+
+					let storage_collection : StorageCollection = if let Some(storage_collection) = storage_collection_raw {
+						deserialize(&storage_collection).unwrap()
+					} else {
+						Default::default()
+					};
 
 					let mut child_storage_updates_key = hash.encode();
-					child_storage_updates_key.extend_from_slice("block/child_storage_updates".as_bytes());
-					let state = self.storage.state_db.get(&child_storage_updates_key, &Arc::try_unwrap(self.storage.clone()).unwrap());
-					let child_storage_collection : ChildStorageCollection = deserialize(&state.unwrap().unwrap()).unwrap();
+					child_storage_updates_key.extend_from_slice(CHILD_STORAGE_UPDATE_PREFIX.as_bytes());
+					let child_storage_collection_raw = self.storage.db.get(columns::STATE, &child_storage_updates_key);
+
+					let child_storage_collection : ChildStorageCollection = if let Some(child_storage_collection) = child_storage_collection_raw {
+						deserialize(&child_storage_collection).unwrap()
+					} else {
+						Default::default()
+					};
 
 					Ok((storage_collection, child_storage_collection))
 				} else {

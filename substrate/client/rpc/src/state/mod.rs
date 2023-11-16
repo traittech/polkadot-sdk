@@ -50,6 +50,7 @@ use sc_client_api::{
 };
 pub use sc_rpc_api::{child_state::*, state::*};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
+use sp_state_machine::{StorageCollection, ChildStorageCollection};
 
 const STORAGE_KEYS_PAGED_MAX_COUNT: u32 = 1000;
 
@@ -98,21 +99,11 @@ where
 		key: StorageKey,
 	) -> Result<Option<StorageData>, Error>;
 
-	/// Returns a storage diff between start block and end block
+	/// Returns a storage diff between given block and previous block
 	fn storage_diff(
 		&self,
-		start: Block::Hash,
-		end: Block::Hash,
-	) -> RpcResult<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
-
-	/// Returns a storage diff between start block and end block with an option to include or exclude prefixes
-	fn storage_diff_with_prefixes(
-		&self,
-		start: Block::Hash,
-		end: Block::Hash,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
-	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>>;
+		block: Block::Hash,
+	) -> Result<(StorageCollection, ChildStorageCollection), Error>;
 
 	/// Returns the hash of a storage entry at a block's state.
 	fn storage_hash(
@@ -272,20 +263,9 @@ where
 
 	fn storage_diff(
 		&self,
-		start: Block::Hash,
-		end: Block::Hash,
-	) -> RpcResult<Vec<(Vec<u8>, Option<Vec<u8>>)>> {
-		self.backend.storage_diff(start, end).map_err(Into::into)
-	}
-
-	fn storage_diff_with_prefixes(
-		&self,
-		start: Block::Hash,
-		end: Block::Hash,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
-	) -> RpcResult<Vec<(StorageKey, Option<StorageData>)>> {
-		self.backend.storage_diff_with_prefixes(start, end, include_prefixes, exclude_prefixes).map_err(Into::into)
+		block: Block::Hash,
+	) -> RpcResult<(StorageCollection, ChildStorageCollection)> {
+		self.backend.storage_diff(block).map_err(Into::into)
 	}
 
 	fn storage_hash(

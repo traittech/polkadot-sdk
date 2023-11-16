@@ -435,10 +435,11 @@ pub trait StorageProvider<Block: BlockT, B: Backend<Block>> {
 		start_key: Option<&StorageKey>,
 	) -> sp_blockchain::Result<KeysIter<B::State, Block>>;
 
+	/// Returns the storage changes between given block and previous block
 	fn storage_updates_at(
 		&self,
 		hash: Block::Hash,
-	) -> sp_blockchain::Result<Vec<(Vec<u8>, Option<Vec<u8>>)>>;
+	) -> sp_blockchain::Result<(StorageCollection, ChildStorageCollection)>;
 
 	/// Given a block's `Hash` and a key prefix, returns an iterator over the storage keys and
 	/// values in that block.

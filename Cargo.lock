@@ -15537,6 +15537,7 @@ dependencies = [
  "assert_matches",
  "env_logger 0.9.3",
  "futures",
+ "hex",
  "jsonrpsee",
  "log",
  "parity-scale-codec",
@@ -15564,6 +15565,7 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "sp-session",
+ "sp-state-machine",
  "sp-statement-store",
  "sp-version",
  "substrate-test-runtime-client",
@@ -15585,6 +15587,7 @@ dependencies = [
  "sp-core",
  "sp-rpc",
  "sp-runtime",
+ "sp-state-machine",
  "sp-version",
  "thiserror",
 ]

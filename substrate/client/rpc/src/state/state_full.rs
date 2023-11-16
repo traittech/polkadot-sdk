@@ -49,6 +49,7 @@ use sp_core::{
 };
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
+use sp_state_machine::{StorageCollection, ChildStorageCollection};
 
 /// The maximum time allowed for an RPC call when running without unsafe RPC enabled.
 const MAXIMUM_SAFE_RPC_CALL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -164,71 +165,6 @@ where
 		}
 		Ok(())
 	}
-
-	// Prepares a storage diff from given start_keys and end_keys
-	fn prepare_storage_diff(
-		&self,
-		start : Block::Hash,
-		end : Block::Hash,
-		start_keys: Vec<StorageKey>,
-		end_keys: Vec<StorageKey>
-	)-> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
-		// prepare diff
-		let mut storage_diff : Vec<(StorageKey, Option<StorageData>)> = vec![];
-		for key in &end_keys {
-			// if a new key is present, add it to the diff
-			if !start_keys.contains(&key) {
-				let new_storage = self.client.storage(end, &key).map_err(client_err)?;
-				storage_diff.push((key.clone(), new_storage))
-			} else {
-				let start_storage_val = self.client.storage(start, &key).map_err(client_err)?;
-				let end_storage_val = self.client.storage(end, &key).map_err(client_err)?;
-
-				if start_storage_val != end_storage_val {
-					storage_diff.push((key.clone(), end_storage_val))
-				}
-			}
-		}
-
-		// finally get any keys that have been removed between start_block and end_block
-		for key in start_keys {
-			if end_keys.iter().position(|r| r == &key).is_none() {
-				storage_diff.push((key, None))
-			}
-		}
-
-		Ok(storage_diff)
-	}
-
-	/// Helper function to check a key against lists of prefixes
-	fn is_target_key(
-		&self,
-		key_to_check: StorageKey,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
-	) -> bool {
-		if let Some(prefixes_to_exclude) = exclude_prefixes {
-			for exclude_prefix in prefixes_to_exclude {
-				if key_to_check.0.starts_with(&exclude_prefix.0) {
-					// skip all keys that have any of "excluded prefixes"
-					return false
-				}
-			}
-		}
-
-		if let Some(prefixes_to_include) = include_prefixes {
-			for include_prefix in prefixes_to_include {
-				if key_to_check.0.starts_with(&include_prefix.0) {
-					return true
-				}
-			}
-			// skip all keys that do not have any of "included prefixes"
-			return false
-		}
-
-		// by default process all keys
-		return true
-	}
 }
 
 #[async_trait]
@@ -282,29 +218,23 @@ where
 
 	fn storage_diff(
 		&self,
-		start : Block::Hash,
-		end : Block::Hash
-	) -> std::result::Result<Vec<(Vec<u8>, Option<Vec<u8>>)>, JsonRpseeError> {
-		// let start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
-		// let end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
+		block : Block::Hash,
+	) -> std::result::Result<(StorageCollection, ChildStorageCollection), Error> {
+		let (storage_collection, child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
 
-		Ok(self.client.storage_updates_at(start).map_err(client_err)?)
-	}
+		// hex encode output before return
+		let formatted_storage_collection : Vec<_> = storage_collection.clone().into_iter().map(|(key, value)| {
+			if value.is_some() {
+				(hex::encode(key), Some(hex::encode(&value.unwrap())))
+			} else {
+				(hex::encode(key), None)
+			}
+			
+		}).collect();
 
-	fn storage_diff_with_prefixes(
-		&self,
-		start : Block::Hash,
-		end : Block::Hash,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
-	) -> std::result::Result<Vec<(StorageKey, Option<StorageData>)>, JsonRpseeError> {
-		let mut start_keys : Vec<_> = self.client.storage_keys(start, None, None).map_err(client_err)?.collect();
-		let mut end_keys : Vec<_> = self.client.storage_keys(end, None, None).map_err(client_err)?.collect();
+		println!("Formatted storage collection {:?}", formatted_storage_collection);
 
-		start_keys = start_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
-		end_keys = end_keys.into_iter().filter(|key| self.is_target_key(key.clone(), include_prefixes.clone(), exclude_prefixes.clone())).collect();
-
-		self.prepare_storage_diff(start, end, start_keys, end_keys)
+		Ok((storage_collection, child_storage_collection))
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

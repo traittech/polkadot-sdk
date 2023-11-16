@@ -45,7 +45,7 @@ pub trait StateApi<Hash> {
 
 	/// Returns a storage diff between given block and previous block
 	#[method(name = "state_getStorageDiff", aliases = ["state_getStorageDiffAt"], blocking)]
-	fn storage_diff(&self, block: Hash) -> RpcResult<(StorageCollection, ChildStorageCollection)>;
+	fn storage_diff(&self, block: Hash, prefixes: Option<Vec<StorageKey>>) -> RpcResult<(StorageCollection, ChildStorageCollection)>;
 
 	/// Returns the keys with prefix, leave empty to get all the keys
 	#[method(name = "state_getPairs", blocking)]

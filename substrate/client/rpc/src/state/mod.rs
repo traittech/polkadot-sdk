@@ -103,6 +103,7 @@ where
 	fn storage_diff(
 		&self,
 		block: Block::Hash,
+		prefixes: Option<Vec<StorageKey>>
 	) -> Result<(StorageCollection, ChildStorageCollection), Error>;
 
 	/// Returns the hash of a storage entry at a block's state.
@@ -264,8 +265,9 @@ where
 	fn storage_diff(
 		&self,
 		block: Block::Hash,
+		prefixes: Option<Vec<StorageKey>>
 	) -> RpcResult<(StorageCollection, ChildStorageCollection)> {
-		self.backend.storage_diff(block).map_err(Into::into)
+		self.backend.storage_diff(block, prefixes).map_err(Into::into)
 	}
 
 	fn storage_hash(

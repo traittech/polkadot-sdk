@@ -67,6 +67,7 @@ pub struct FullState<BE, Block: BlockT, Client> {
 	_phantom: PhantomData<(BE, Block)>,
 }
 
+
 impl<BE, Block: BlockT, Client> FullState<BE, Block, Client>
 where
 	BE: Backend<Block>,
@@ -165,6 +166,26 @@ where
 		}
 		Ok(())
 	}
+
+	/// Helper function to check a key against lists of prefixes
+	fn is_target_key(
+		&self,
+		key_to_check: StorageKey,
+		include_prefixes : Option<Vec<StorageKey>>,
+	) -> bool {
+		if let Some(prefixes_to_include) = include_prefixes {
+			for include_prefix in prefixes_to_include {
+				if key_to_check.0.starts_with(&include_prefix.0) {
+					return true
+				}
+			}
+			// skip all keys that do not have any of "included prefixes"
+			return false
+		}
+
+		// by default process all keys
+		return true
+	}
 }
 
 #[async_trait]
@@ -219,20 +240,13 @@ where
 	fn storage_diff(
 		&self,
 		block : Block::Hash,
+		prefixes: Option<Vec<StorageKey>>
 	) -> std::result::Result<(StorageCollection, ChildStorageCollection), Error> {
-		let (storage_collection, child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
+		let (mut storage_collection, mut child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
 
-		// hex encode output before return
-		let formatted_storage_collection : Vec<_> = storage_collection.clone().into_iter().map(|(key, value)| {
-			if value.is_some() {
-				(hex::encode(key), Some(hex::encode(&value.unwrap())))
-			} else {
-				(hex::encode(key), None)
-			}
-			
-		}).collect();
-
-		println!("Formatted storage collection {:?}", formatted_storage_collection);
+		// retain only required prefixes
+		storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), prefixes.clone()));
+		child_storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), prefixes.clone()));
 
 		Ok((storage_collection, child_storage_collection))
 	}

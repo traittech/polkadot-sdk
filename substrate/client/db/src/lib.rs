@@ -1575,13 +1575,13 @@ impl<Block: BlockT> Backend<Block> {
 
 				// add the storage updates to the changeset
 				let storage_updates_encoded = serialize(&operation.storage_updates.clone()).unwrap();
-				let mut storage_updates_key = hash.encode();
-				storage_updates_key.extend_from_slice(STORAGE_UPDATE_PREFIX.as_bytes());
+				let mut storage_updates_key = STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+				storage_updates_key.extend_from_slice(&hash.encode());
 				changeset.inserted.push((storage_updates_key, storage_updates_encoded.clone()));
 
 				let child_storage_updates_encoded = serialize(&operation.child_storage_updates.clone()).unwrap();
-				let mut child_storage_updates_key = hash.encode();
-				child_storage_updates_key.extend_from_slice(CHILD_STORAGE_UPDATE_PREFIX.as_bytes());
+				let mut child_storage_updates_key = CHILD_STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+				child_storage_updates_key.extend_from_slice(&hash.encode());
 				changeset.inserted.push((child_storage_updates_key, child_storage_updates_encoded));
 
 				self.state_usage.tally_writes_nodes(ops, bytes);
@@ -2497,8 +2497,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 				if let Ok(()) =
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
-					let mut storage_updates_key = hash.encode();
-					storage_updates_key.extend_from_slice(STORAGE_UPDATE_PREFIX.as_bytes());					
+					let mut storage_updates_key = STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+					storage_updates_key.extend_from_slice(&hash.encode());					
 					let storage_collection_raw = self.storage.db.get(columns::STATE, &storage_updates_key);
 
 					let storage_collection : StorageCollection = if let Some(storage_collection) = storage_collection_raw {
@@ -2507,8 +2507,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						Default::default()
 					};
 
-					let mut child_storage_updates_key = hash.encode();
-					child_storage_updates_key.extend_from_slice(CHILD_STORAGE_UPDATE_PREFIX.as_bytes());
+					let mut child_storage_updates_key = CHILD_STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+					child_storage_updates_key.extend_from_slice(&hash.encode());
 					let child_storage_collection_raw = self.storage.db.get(columns::STATE, &child_storage_updates_key);
 
 					let child_storage_collection : ChildStorageCollection = if let Some(child_storage_collection) = child_storage_collection_raw {

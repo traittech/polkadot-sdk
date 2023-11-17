@@ -172,7 +172,17 @@ where
 		&self,
 		key_to_check: StorageKey,
 		include_prefixes : Option<Vec<StorageKey>>,
+		exclude_prefixes : Option<Vec<StorageKey>>
 	) -> bool {
+		if let Some(prefixes_to_exclude) = exclude_prefixes {
+			for exclude_prefix in prefixes_to_exclude {
+				if key_to_check.0.starts_with(&exclude_prefix.0) {
+					// skip all keys that have any of "excluded prefixes"
+					return false
+				}
+			}
+		}
+
 		if let Some(prefixes_to_include) = include_prefixes {
 			for include_prefix in prefixes_to_include {
 				if key_to_check.0.starts_with(&include_prefix.0) {
@@ -240,13 +250,14 @@ where
 	fn storage_diff(
 		&self,
 		block : Block::Hash,
-		prefixes: Option<Vec<StorageKey>>
+		included_prefixes: Option<Vec<StorageKey>>,
+		excluded_prefixes: Option<Vec<StorageKey>>,
 	) -> std::result::Result<(StorageCollection, ChildStorageCollection), Error> {
 		let (mut storage_collection, mut child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
 
 		// retain only required prefixes
-		storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), prefixes.clone()));
-		child_storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), prefixes.clone()));
+		storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), included_prefixes.clone(), excluded_prefixes.clone()));
+		child_storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), included_prefixes.clone(), excluded_prefixes.clone()));
 
 		Ok((storage_collection, child_storage_collection))
 	}

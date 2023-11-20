@@ -105,7 +105,8 @@ where
 		block: Block::Hash,
 		included_prefixes: Option<Vec<StorageKey>>,
 		excluded_prefixes: Option<Vec<StorageKey>>,
-	) -> Result<(StorageCollection, ChildStorageCollection), Error>;
+		include_modified_child_tries: bool,
+	) -> Result<(StorageCollection, Option<ChildStorageCollection>), Error>;
 
 	/// Returns the hash of a storage entry at a block's state.
 	fn storage_hash(
@@ -268,8 +269,9 @@ where
 		block: Block::Hash,
 		included_prefixes: Option<Vec<StorageKey>>,
 		excluded_prefixes: Option<Vec<StorageKey>>,
-	) -> RpcResult<(StorageCollection, ChildStorageCollection)> {
-		self.backend.storage_diff(block, included_prefixes, excluded_prefixes).map_err(Into::into)
+		include_modified_child_tries: Option<bool>,
+	) -> RpcResult<(StorageCollection, Option<ChildStorageCollection>)> {
+		self.backend.storage_diff(block, included_prefixes, excluded_prefixes, include_modified_child_tries.is_some()).map_err(Into::into)
 	}
 
 	fn storage_hash(

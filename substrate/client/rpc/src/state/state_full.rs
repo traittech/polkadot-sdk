@@ -254,13 +254,12 @@ where
 		excluded_prefixes: Option<Vec<StorageKey>>,
 		include_modified_child_tries: bool,
 	) -> std::result::Result<(StorageCollection, Option<ChildStorageCollection>), Error> {
-		let (mut modified_keys, mut child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
+		let (mut modified_keys, child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
 
 		// retain only required prefixes
 		modified_keys.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), included_prefixes.clone(), excluded_prefixes.clone()));
 		
 		let modified_child_keys = if include_modified_child_tries {
-			child_storage_collection.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), included_prefixes.clone(), excluded_prefixes.clone()));
 			Some(child_storage_collection) 
 		}
 		else {

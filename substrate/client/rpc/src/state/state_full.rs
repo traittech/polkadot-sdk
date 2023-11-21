@@ -170,9 +170,9 @@ where
 	/// Helper function to check a key against lists of prefixes
 	fn is_target_key(
 		&self,
-		key_to_check: StorageKey,
-		include_prefixes : Option<Vec<StorageKey>>,
-		exclude_prefixes : Option<Vec<StorageKey>>
+		key_to_check: &StorageKey,
+		include_prefixes : &Option<Vec<StorageKey>>,
+		exclude_prefixes : &Option<Vec<StorageKey>>
 	) -> bool {
 		if let Some(prefixes_to_exclude) = exclude_prefixes {
 			for exclude_prefix in prefixes_to_exclude {
@@ -257,16 +257,9 @@ where
 		let (mut modified_keys, child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
 
 		// retain only required prefixes
-		modified_keys.retain(|key| self.is_target_key(sc_client_api::StorageKey(key.0.clone()), included_prefixes.clone(), excluded_prefixes.clone()));
+		modified_keys.retain(|key| self.is_target_key(&sc_client_api::StorageKey(key.0.clone()), &included_prefixes, &excluded_prefixes));
 		
-		let modified_child_keys = if include_modified_child_tries {
-			Some(child_storage_collection) 
-		}
-		else {
-			None
-		};
-
-		Ok((modified_keys, modified_child_keys))
+		Ok((modified_keys, include_modified_child_tries.then_some(child_storage_collection)))
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

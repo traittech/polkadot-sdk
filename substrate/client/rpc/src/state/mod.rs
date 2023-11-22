@@ -50,6 +50,7 @@ use sc_client_api::{
 };
 pub use sc_rpc_api::{child_state::*, state::*};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
+use sp_state_machine::{StorageCollection, ChildStorageCollection};
 
 const STORAGE_KEYS_PAGED_MAX_COUNT: u32 = 1000;
 
@@ -97,6 +98,15 @@ where
 		block: Option<Block::Hash>,
 		key: StorageKey,
 	) -> Result<Option<StorageData>, Error>;
+
+	/// Returns a storage diff between given block and previous block
+	fn storage_diff(
+		&self,
+		block: Block::Hash,
+		included_prefixes: Option<Vec<StorageKey>>,
+		excluded_prefixes: Option<Vec<StorageKey>>,
+		include_modified_child_tries: bool,
+	) -> Result<(StorageCollection, Option<ChildStorageCollection>), Error>;
 
 	/// Returns the hash of a storage entry at a block's state.
 	fn storage_hash(
@@ -252,6 +262,16 @@ where
 		block: Option<Block::Hash>,
 	) -> RpcResult<Option<StorageData>> {
 		self.backend.storage(block, key).map_err(Into::into)
+	}
+
+	fn storage_diff(
+		&self,
+		block: Block::Hash,
+		included_prefixes: Option<Vec<StorageKey>>,
+		excluded_prefixes: Option<Vec<StorageKey>>,
+		include_modified_child_tries: Option<bool>,
+	) -> RpcResult<(StorageCollection, Option<ChildStorageCollection>)> {
+		self.backend.storage_diff(block, included_prefixes, excluded_prefixes, include_modified_child_tries.is_some()).map_err(Into::into)
 	}
 
 	fn storage_hash(

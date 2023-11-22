@@ -24,6 +24,7 @@ use sp_core::{
 	Bytes,
 };
 use sp_version::RuntimeVersion;
+use sp_state_machine::{ChildStorageCollection, StorageCollection};
 
 pub mod error;
 pub mod helpers;
@@ -41,6 +42,10 @@ pub trait StateApi<Hash> {
 	#[method(name = "state_getKeys", blocking)]
 	#[deprecated(since = "2.0.0", note = "Please use `getKeysPaged` with proper paging support")]
 	fn storage_keys(&self, prefix: StorageKey, hash: Option<Hash>) -> RpcResult<Vec<StorageKey>>;
+
+	/// Returns a storage diff between given block and previous block
+	#[method(name = "state_getStorageDiff", aliases = ["state_getStorageDiffAt"], blocking)]
+	fn storage_diff(&self, block: Hash, included_prefixes: Option<Vec<StorageKey>>, excluded_prefixes: Option<Vec<StorageKey>>, include_modified_child_tries: Option<bool>) -> RpcResult<(StorageCollection, Option<ChildStorageCollection>)>;
 
 	/// Returns the keys with prefix, leave empty to get all the keys
 	#[method(name = "state_getPairs", blocking)]

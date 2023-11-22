@@ -19,14 +19,12 @@
 //! State API backend for full nodes.
 
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
-
 use super::{
 	client_err,
 	error::{Error, Result},
 	ChildStateBackend, StateBackend,
 };
 use crate::{DenyUnsafe, SubscriptionTaskExecutor};
-
 use futures::{future, stream, FutureExt, StreamExt};
 use jsonrpsee::{
 	core::{async_trait, Error as JsonRpseeError},
@@ -51,6 +49,7 @@ use sp_core::{
 };
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
+use sp_state_machine::{StorageCollection, ChildStorageCollection};
 
 /// The maximum time allowed for an RPC call when running without unsafe RPC enabled.
 const MAXIMUM_SAFE_RPC_CALL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -67,6 +66,7 @@ pub struct FullState<BE, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	_phantom: PhantomData<(BE, Block)>,
 }
+
 
 impl<BE, Block: BlockT, Client> FullState<BE, Block, Client>
 where
@@ -166,6 +166,36 @@ where
 		}
 		Ok(())
 	}
+
+	/// Helper function to check a key against lists of prefixes
+	fn is_target_key(
+		&self,
+		key_to_check: &StorageKey,
+		include_prefixes : &Option<Vec<StorageKey>>,
+		exclude_prefixes : &Option<Vec<StorageKey>>
+	) -> bool {
+		if let Some(prefixes_to_exclude) = exclude_prefixes {
+			for exclude_prefix in prefixes_to_exclude {
+				if key_to_check.0.starts_with(&exclude_prefix.0) {
+					// skip all keys that have any of "excluded prefixes"
+					return false
+				}
+			}
+		}
+
+		if let Some(prefixes_to_include) = include_prefixes {
+			for include_prefix in prefixes_to_include {
+				if key_to_check.0.starts_with(&include_prefix.0) {
+					return true
+				}
+			}
+			// skip all keys that do not have any of "included prefixes"
+			return false
+		}
+
+		// by default process all keys
+		return true
+	}
 }
 
 #[async_trait]
@@ -215,6 +245,21 @@ where
 			.and_then(|block| self.client.storage_keys(block, Some(&prefix), None))
 			.map(|iter| iter.collect())
 			.map_err(client_err)
+	}
+
+	fn storage_diff(
+		&self,
+		block : Block::Hash,
+		included_prefixes: Option<Vec<StorageKey>>,
+		excluded_prefixes: Option<Vec<StorageKey>>,
+		include_modified_child_tries: bool,
+	) -> std::result::Result<(StorageCollection, Option<ChildStorageCollection>), Error> {
+		let (mut modified_keys, child_storage_collection) = self.client.storage_updates_at(block).map_err(client_err)?;
+
+		// retain only required prefixes
+		modified_keys.retain(|key| self.is_target_key(&sc_client_api::StorageKey(key.0.clone()), &included_prefixes, &excluded_prefixes));
+		
+		Ok((modified_keys, include_modified_child_tries.then_some(child_storage_collection)))
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

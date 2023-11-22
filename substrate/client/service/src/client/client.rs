@@ -1511,6 +1511,15 @@ where
 			.map(StorageData))
 	}
 
+	fn storage_updates_at(
+		&self,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<(StorageCollection, ChildStorageCollection)> {
+		Ok(self
+			.backend.storage_updates_at(hash)?
+			)
+	}
+
 	fn storage_hash(
 		&self,
 		hash: <Block as BlockT>::Hash,

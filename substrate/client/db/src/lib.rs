@@ -91,6 +91,7 @@ use sp_state_machine::{
 	StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
+use bincode::{serialize, deserialize};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -99,6 +100,8 @@ pub use sp_database::Database;
 pub use bench::BenchmarkingState;
 
 const CACHE_HEADERS: usize = 8;
+const CHILD_STORAGE_UPDATE_PREFIX : &str = "block/child_storage_updates";
+const STORAGE_UPDATE_PREFIX : &str = "block/storage_updates";
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
 pub type DbState<B> =
@@ -1108,6 +1111,8 @@ impl<T: Clone> FrozenForDuration<T> {
 pub struct Backend<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
 	offchain_storage: offchain::LocalStorage,
+	storage_updates: RwLock<StorageCollection>,
+	child_storage_updates: RwLock<ChildStorageCollection>,
 	blockchain: BlockchainDb<Block>,
 	canonicalization_delay: u64,
 	import_lock: Arc<RwLock<()>>,
@@ -1230,6 +1235,8 @@ impl<Block: BlockT> Backend<Block> {
 			storage: Arc::new(storage_db),
 			offchain_storage,
 			blockchain,
+			child_storage_updates: Default::default(),
+			storage_updates: Default::default(),
 			canonicalization_delay,
 			import_lock: Default::default(),
 			is_archive: is_archive_pruning,
@@ -1531,6 +1538,9 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			let finalized = if operation.commit_state {
+				*self.storage_updates.write() = operation.storage_updates.clone();
+				*self.child_storage_updates.write() = operation.child_storage_updates.clone();
+
 				let mut changeset: sc_state_db::ChangeSet<Vec<u8>> =
 					sc_state_db::ChangeSet::default();
 				let mut ops: u64 = 0;
@@ -1562,6 +1572,18 @@ impl<Block: BlockT> Backend<Block> {
 						}
 					}
 				}
+
+				// add the storage updates to the changeset
+				let storage_updates_encoded = serialize(&operation.storage_updates.clone()).unwrap();
+				let mut storage_updates_key = STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+				storage_updates_key.extend_from_slice(&hash.encode());
+				changeset.inserted.push((storage_updates_key, storage_updates_encoded.clone()));
+
+				let child_storage_updates_encoded = serialize(&operation.child_storage_updates.clone()).unwrap();
+				let mut child_storage_updates_key = CHILD_STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+				child_storage_updates_key.extend_from_slice(&hash.encode());
+				changeset.inserted.push((child_storage_updates_key, child_storage_updates_encoded));
+
 				self.state_usage.tally_writes_nodes(ops, bytes);
 				self.state_usage.tally_removed_nodes(removal, bytes_removal);
 
@@ -2446,6 +2468,56 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 						.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
+				} else {
+					Err(sp_blockchain::Error::UnknownBlock(format!(
+						"State already discarded for {:?}",
+						hash
+					)))
+				}
+			},
+			Err(e) => Err(e),
+		}
+	}
+
+
+	fn storage_updates_at(&self, hash: Block::Hash) -> ClientResult<(StorageCollection, ChildStorageCollection)> {
+		if hash == self.blockchain.meta.read().genesis_hash {
+			// no storage updates for genesis block
+			return Ok(Default::default());
+		}
+
+		match self.blockchain.header_metadata(hash) {
+			Ok(ref hdr) => {
+				let hint = || {
+					sc_state_db::NodeDb::get(self.storage.as_ref(), hdr.state_root.as_ref())
+						.unwrap_or(None)
+						.is_some()
+				};
+
+				if let Ok(()) =
+					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
+				{
+					let mut storage_updates_key = STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+					storage_updates_key.extend_from_slice(&hash.encode());					
+					let storage_collection_raw = self.storage.db.get(columns::STATE, &storage_updates_key);
+
+					let storage_collection : StorageCollection = if let Some(storage_collection) = storage_collection_raw {
+						deserialize(&storage_collection).unwrap()
+					} else {
+						Default::default()
+					};
+
+					let mut child_storage_updates_key = CHILD_STORAGE_UPDATE_PREFIX.as_bytes().to_vec();
+					child_storage_updates_key.extend_from_slice(&hash.encode());
+					let child_storage_collection_raw = self.storage.db.get(columns::STATE, &child_storage_updates_key);
+
+					let child_storage_collection : ChildStorageCollection = if let Some(child_storage_collection) = child_storage_collection_raw {
+						deserialize(&child_storage_collection).unwrap()
+					} else {
+						Default::default()
+					};
+
+					Ok((storage_collection, child_storage_collection))
 				} else {
 					Err(sp_blockchain::Error::UnknownBlock(format!(
 						"State already discarded for {:?}",

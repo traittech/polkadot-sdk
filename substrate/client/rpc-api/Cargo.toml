@@ -23,6 +23,7 @@ sc-mixnet = { path = "../mixnet" }
 sc-transaction-pool-api = { path = "../transaction-pool/api" }
 sp-core = { path = "../../primitives/core" }
 sp-rpc = { path = "../../primitives/rpc" }
+sp-state-machine = { path = "../../primitives/state-machine" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-version = { path = "../../primitives/version" }
 jsonrpsee = { version = "0.16.2", features = ["server", "client-core", "macros"] }

@@ -175,6 +175,7 @@ use frame_support::{
 		Currency, EnsureOriginWithArg, ReservableCurrency, StoredMap,
 	},
 };
+use frame_support::traits::Incrementable;
 use frame_system::Config as SystemConfig;
 
 pub use pallet::*;
@@ -250,7 +251,7 @@ pub mod pallet {
 		type RemoveItemsLimit: Get<u32>;
 
 		/// Identifier for the class of asset.
-		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+		type AssetId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + Incrementable;
 
 		/// Wrapper around `Self::AssetId` to use in dispatchable call signatures. Allows the use
 		/// of compact encoding in instances of the pallet, which will prevent breaking changes
@@ -367,6 +368,12 @@ pub mod pallet {
 		AssetMetadata<DepositBalanceOf<T, I>, BoundedVec<u8, T::StringLimit>>,
 		ValueQuery,
 	>;
+
+	/// Stores the `AssetId` that is going to be used for the next asset.
+	/// This gets incremented whenever a new asset is created.
+	#[pallet::storage]
+	pub type NextAssetId<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, T::AssetId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -524,6 +531,8 @@ pub mod pallet {
 		Touched { asset_id: T::AssetId, who: T::AccountId, depositor: T::AccountId },
 		/// Some account `who` was blocked.
 		Blocked { asset_id: T::AssetId, who: T::AccountId },
+		/// The Next asset Id was incremented 
+		NextAssetIdIncremented { next_id : Option<T::AssetId> }
 	}
 
 	#[pallet::error]
@@ -597,11 +606,12 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		pub fn create(
 			origin: OriginFor<T>,
-			id: T::AssetIdParameter,
 			admin: AccountIdLookupOf<T>,
 			min_balance: T::Balance,
 		) -> DispatchResult {
-			let id: T::AssetId = id.into();
+			let id = NextAssetId::<T, I>::get()
+				.or(T::AssetId::initial_value())
+				.ok_or(Error::<T, I>::Unknown)?;
 			let owner = T::CreateOrigin::ensure_origin(origin, &id)?;
 			let admin = T::Lookup::lookup(admin)?;
 
@@ -630,10 +640,12 @@ pub mod pallet {
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
 			Self::deposit_event(Event::Created {
-				asset_id: id,
+				asset_id: id.clone(),
 				creator: owner.clone(),
 				owner: admin,
 			});
+
+			Self::set_next_asset_id(id);
 
 			Ok(())
 		}

@@ -463,7 +463,7 @@ fn force_cancel_approval_works() {
 fn lifecycle_should_work() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 1));
 		assert_eq!(Balances::reserved_balance(&1), 1);
 		assert!(Asset::<Test>::contains_key(0));
 
@@ -489,29 +489,29 @@ fn lifecycle_should_work() {
 		assert!(!Metadata::<Test>::contains_key(0));
 		assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
 
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 1));
 		assert_eq!(Balances::reserved_balance(&1), 1);
-		assert!(Asset::<Test>::contains_key(0));
+		assert!(Asset::<Test>::contains_key(1));
 
-		assert_ok!(Assets::set_metadata(RuntimeOrigin::signed(1), 0, vec![0], vec![0], 12));
+		assert_ok!(Assets::set_metadata(RuntimeOrigin::signed(1), 1, vec![0], vec![0], 12));
 		assert_eq!(Balances::reserved_balance(&1), 4);
-		assert!(Metadata::<Test>::contains_key(0));
+		assert!(Metadata::<Test>::contains_key(1));
 
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 10, 100));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 20, 100));
-		assert_eq!(Account::<Test>::iter_prefix(0).count(), 2);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 10, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 1, 20, 100));
+		assert_eq!(Account::<Test>::iter_prefix(1).count(), 2);
 
-		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(1), 0));
-		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Assets::start_destroy(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Assets::destroy_accounts(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Assets::destroy_approvals(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Assets::finish_destroy(RuntimeOrigin::signed(1), 1));
 
 		assert_eq!(Balances::reserved_balance(&1), 0);
 
-		assert!(!Asset::<Test>::contains_key(0));
-		assert!(!Metadata::<Test>::contains_key(0));
-		assert_eq!(Account::<Test>::iter_prefix(0).count(), 0);
+		assert!(!Asset::<Test>::contains_key(1));
+		assert!(!Metadata::<Test>::contains_key(1));
+		assert_eq!(Account::<Test>::iter_prefix(1).count(), 0);
 	});
 }
 
@@ -832,7 +832,7 @@ fn transfer_owner_should_work() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 100);
 		Balances::make_free_balance_be(&2, 100);
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 1));
 		assert_eq!(asset_ids(), vec![0, 999]);
 
 		assert_eq!(Balances::reserved_balance(&1), 1);
@@ -1433,7 +1433,7 @@ fn force_asset_status_should_work() {
 	new_test_ext().execute_with(|| {
 		Balances::make_free_balance_be(&1, 10);
 		Balances::make_free_balance_be(&2, 10);
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 30));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 30));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 50));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 150));
 
@@ -1493,9 +1493,9 @@ fn force_asset_status_should_work() {
 #[test]
 fn set_min_balance_should_work() {
 	new_test_ext().execute_with(|| {
-		let id = 42;
+		let id = 0;
 		Balances::make_free_balance_be(&1, 10);
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), id, 1, 30));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 30));
 
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), id, 1, 100));
 		// Won't execute because there is an asset holder.
@@ -1661,7 +1661,7 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
 
 		Balances::make_free_balance_be(&1, 100);
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 1));
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
 
@@ -1693,13 +1693,13 @@ fn asset_create_and_destroy_is_reverted_if_callback_fails() {
 		AssetsCallbackHandle::set_return_error();
 		Balances::make_free_balance_be(&1, 100);
 		assert_noop!(
-			Assets::create(RuntimeOrigin::signed(1), 0, 1, 1),
+			Assets::create(RuntimeOrigin::signed(1), 1, 1),
 			Error::<Test>::CallbackFailed
 		);
 
 		// Callback succeeds, so asset creation succeeds
 		AssetsCallbackHandle::set_return_ok();
-		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 1, 1));
 
 		// Asset destroy should fail due to callback failure
 		AssetsCallbackHandle::set_return_error();
@@ -1735,7 +1735,7 @@ fn multiple_transfer_alls_work_ok() {
 
 #[test]
 fn weights_sane() {
-	let info = crate::Call::<Test>::create { id: 10, admin: 4, min_balance: 3 }.get_dispatch_info();
+	let info = crate::Call::<Test>::create { admin: 4, min_balance: 3 }.get_dispatch_info();
 	assert_eq!(<() as crate::WeightInfo>::create(), info.weight);
 
 	let info = crate::Call::<Test>::finish_destroy { id: 10 }.get_dispatch_info();

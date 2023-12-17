@@ -1013,4 +1013,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})
 			.collect::<Vec<_>>()
 	}
+
+	/// Set the next assetId
+	pub(crate) fn set_next_asset_id(asset: T::AssetId) {
+		let next_id = asset.increment();
+		NextAssetId::<T, I>::set(next_id.clone());
+		Self::deposit_event(Event::NextAssetIdIncremented { next_id });
+	}
 }

@@ -42,14 +42,13 @@ use sp_blockchain::{
 };
 use sp_core::{
 	storage::{
-		ChildInfo, ChildType, PrefixedStorageKey, StorageChangeSet, StorageData, StorageKey,
+		ChildInfo, ChildType, PrefixedStorageKey, StorageChangeSet, StorageData, StorageKey, StorageCollection, ChildStorageCollection
 	},
 	traits::CallContext,
 	Bytes,
 };
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
-use sp_state_machine::{StorageCollection, ChildStorageCollection};
 
 /// The maximum time allowed for an RPC call when running without unsafe RPC enabled.
 const MAXIMUM_SAFE_RPC_CALL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -258,8 +257,30 @@ where
 
 		// retain only required prefixes
 		modified_keys.retain(|key| self.is_target_key(&sc_client_api::StorageKey(key.0.clone()), &included_prefixes, &excluded_prefixes));
+
+		// convert to serialisable type
+		let converted_keys = modified_keys.into_iter().map(|(x,y)| {
+			let storage_data = match y {
+				Some(x) => Some(StorageData(x)),
+				None => None
+			};
+			(StorageKey(x), storage_data)
+		}).collect::<Vec<_>>();
+
+		// convert to serialisable type
+		let converted_child_keys = child_storage_collection.into_iter().map(|(x,y)| {
+			let converted_keys = y.into_iter().map(|(x,y)| {
+				let storage_data = match y {
+					Some(x) => Some(StorageData(x)),
+					None => None
+				};
+				(StorageKey(x), storage_data)
+			}).collect::<Vec<_>>();
+
+			(StorageKey(x), converted_keys)
+		}).collect::<Vec<_>>();
 		
-		Ok((modified_keys, include_modified_child_tries.then_some(child_storage_collection)))
+		Ok((converted_keys.into(), include_modified_child_tries.then_some(converted_child_keys)))
 	}
 
 	// TODO: This is horribly broken; either remove it, or make it streaming.

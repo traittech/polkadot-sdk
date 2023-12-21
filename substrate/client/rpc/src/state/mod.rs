@@ -35,7 +35,7 @@ use jsonrpsee::{
 
 use sc_rpc_api::DenyUnsafe;
 use sp_core::{
-	storage::{PrefixedStorageKey, StorageChangeSet, StorageData, StorageKey},
+	storage::{PrefixedStorageKey, StorageChangeSet, StorageData, StorageKey, StorageCollection, ChildStorageCollection},
 	Bytes,
 };
 use sp_runtime::traits::Block as BlockT;
@@ -50,7 +50,6 @@ use sc_client_api::{
 };
 pub use sc_rpc_api::{child_state::*, state::*};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
-use sp_state_machine::{StorageCollection, ChildStorageCollection};
 
 const STORAGE_KEYS_PAGED_MAX_COUNT: u32 = 1000;
 

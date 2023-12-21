@@ -149,6 +149,12 @@ pub struct StorageData(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
 
+/// Storage Collection
+pub type StorageCollection = Vec<(StorageKey, Option<StorageData>)>;
+
+/// Child Storage Collection
+pub type ChildStorageCollection = Vec<(StorageKey, StorageCollection)>;
+
 /// Map of data to use in a storage, it is a collection of
 /// byte key and values.
 #[cfg(feature = "std")]

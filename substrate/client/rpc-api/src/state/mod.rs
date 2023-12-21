@@ -20,11 +20,10 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::{
-	storage::{StorageChangeSet, StorageData, StorageKey},
+	storage::{StorageChangeSet, StorageData, StorageKey, ChildStorageCollection, StorageCollection},
 	Bytes,
 };
 use sp_version::RuntimeVersion;
-use sp_state_machine::{ChildStorageCollection, StorageCollection};
 
 pub mod error;
 pub mod helpers;
